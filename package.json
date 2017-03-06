@@ -1,0 +1,23 @@
+{
+  "name": "medooze-media-server-demo",
+  "version": "1.0.0",
+  "description": "Demo application for the Medooze Media Server for Node.js",
+  "main": "index.js",
+  "scripts": {
+    "install": "openssl req  -nodes -new -x509  -keyout server.key -out server.cert -subj \"/CN=localhost\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/murillo128/media-server-demo-node.git"
+  },
+  "author": "Sergio Garcia Murillo",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/murillo128/media-server-demo-node/issues"
+  },
+  "homepage": "https://github.com/murillo128/media-server-demo-node#readme",
+  "dependencies": {
+    "medooze-media-server": "^0.2.0",
+    "websocket": "^1.0.24"
+  }
+}
