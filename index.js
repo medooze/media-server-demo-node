@@ -115,17 +115,17 @@ wsServer.on ('request', (request) => {
 			
 					//Process the sdp
 					var offer = SDPInfo.process(msg.offer);
-
+					
 					//Create an DTLS ICE transport in that enpoint
 					const transport = endpoint.createTransport({
-						dtls : offer.getMedias()[0].getDTLS(),
-						ice  : offer.getMedias()[0].getICE() 
+						dtls : offer.getDTLS(),
+						ice  : offer.getICE() 
 					});
 
 					//Set RTP remote properties
 					 transport.setRemoteProperties({
-						audio : offer.getAudio(),
-						video : offer.getVideo()
+						audio : offer.getMedia("audio"),
+						video : offer.getMedia("video")
 					});
 
 					//Get local DTLS and ICE info
@@ -137,22 +137,24 @@ wsServer.on ('request', (request) => {
 
 					//Create local SDP info
 					let answer = new SDPInfo();
+					
+					//Add ice and dtls info
+					answer.setDTLS(dtls);
+					answer.setICE(ice);
+					//For each local candidate
+					for (let i=0;i<candidates.length;++i)
+						//Add candidate to media info
+						answer.addCandidate(candidates[i]);
 
 					//Get remote video m-line info 
-					let videoOffer = offer.getVideo();
+					let videoOffer = offer.getMedia("video");
 
 					//If offer had video
 					if (videoOffer)
 					{
 						//Create video media
-						let  video = new MediaInfo("video", "video");
-						//Add ice and dtls info
-						video.setDTLS(dtls);
-						video.setICE(ice);
-						//For each local candidate
-						for (let i=0;i<candidates.length;++i)
-							//Add candidate to media info
-							video.addCandidate(candidates[i]);
+						let  video = new MediaInfo(videoOffer.getId(), "video");
+						
 						//Get codec types
 						let vp9 = videoOffer.getCodec("vp9");
 						let fec = videoOffer.getCodec("flexfec-03");
@@ -173,8 +175,8 @@ wsServer.on ('request', (request) => {
 					}
 
 					//Set RTP local  properties
-					 transport.setLocalProperties({
-						video : answer.getVideo()
+					transport.setLocalProperties({
+						video : answer.getMedia("video")
 					});
 
 
@@ -194,7 +196,7 @@ wsServer.on ('request', (request) => {
 						const info = outgoingStream.getStreamInfo();
 
 						//Copy incoming data from the remote stream to the local one
-						connection.transceiver = outgoingStream.attachTo(incomingStream)[0];
+						connection.transporder = outgoingStream.attachTo(incomingStream)[0];
 
 						//Add local stream info it to the answer
 						answer.addStream(info);
@@ -206,7 +208,7 @@ wsServer.on ('request', (request) => {
 						}));
 				} else {
 					//Select layer
-					connection.transceiver.selectLayer(parseInt(msg.spatialLayerId),parseInt(msg.temporalLayerId));
+					connection.transporder.selectLayer(parseInt(msg.spatialLayerId),parseInt(msg.temporalLayerId));
 				}
 					
 			});

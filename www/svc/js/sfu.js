@@ -76,11 +76,12 @@ function  getUserMedia(constrains)
 	});
 }
 
-
+var sdp;
+var pc;
+	
 function connect() 
 {
-	var sdp;
-	var pc;
+
 	if (window.RTCPeerConnection)
 		pc = new RTCPeerConnection({
 			bundlePolicy: "max-bundle",
@@ -143,7 +144,7 @@ function connect()
 	ws.onopen = function(){
 		console.log("opened");
 		
-		getUserMedia({
+		navigator.mediaDevices.getUserMedia({
 			audio: false,
 			video: true
 		})
@@ -256,11 +257,17 @@ function connect()
 }
 
 var dialog = document.querySelector('dialog');
-dialog.showModal();
-dialog.querySelector('.ready').addEventListener('click', function() {
-	dialog.close();
+if (dialog.showModal)
+{
+	dialog.showModal();
+	dialog.querySelector('.ready').addEventListener('click', function() {
+		dialog.close();
+		connect();
+	});
+} else {
 	connect();
-});
+}
+
 
 
 
