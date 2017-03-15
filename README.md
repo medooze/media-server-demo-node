@@ -12,7 +12,16 @@ You need to run the demo passing as argument the public IP address of the media 
 node index.js <ip>
 ```
 
-The demo will open an HTPPS/WSS server at port 8000. To run the demos just open `https://ip:8000/svc/` on a Chrome browser.
+The demo will open an HTPPS/WSS server at port 8000. 
+
+##Demos
+###SVC Layer selection
+
+To run this demo just open `https://ip:8000/svc/` on a Chrome browser and follow instructions.
+
+###Recording
+
+To run this demo just open `https://ip:8000/rec/` with Chrome or Firefox.
 
 
 
