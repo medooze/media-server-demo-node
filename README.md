@@ -23,9 +23,14 @@ To run this demo just open `https://ip:8000/svc/` on a Chrome browser and follow
 
 To run this demo just open `https://ip:8000/rec/` with Chrome or Firefox.
 
-###Broadcasting
+### Broadcasting
 
 To run this demo just open `https://ip:8000/broadcast/` with Chrome or Firefox and follow instructions.
+
+### Simulcat
+
+To run this demo just open `https://ip:8000/simulcast/` with Chrome or Firefox and follow instructions.
+
 
 
 
