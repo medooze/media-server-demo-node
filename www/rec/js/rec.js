@@ -37,8 +37,10 @@ function connect()
 
 	if (window.RTCPeerConnection)
 		pc = new RTCPeerConnection({
-			bundlePolicy: "max-bundle",
-			rtcpMuxPolicy : "require"
+			bundlePolicy	: "max-bundle",
+			rtcpMuxPolicy	: "require",
+			mediaCryptoKey	: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkw",
+			mediaCryptoSuite: "AES_CM_128_HMAC_SHA1_80"
 		});
 	else 
 		pc = new webkitRTCPeerConnection(null);

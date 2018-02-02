@@ -90,47 +90,55 @@ function connect()
 	else 
 		pc = new webkitRTCPeerConnection(null);
 	
-	var ws = new WebSocket(url,"svc");
+	var ws = new WebSocket(url,"simulcast");
 	
 	pc.onaddstream = function(event) {
-		var prev = 0;
-		console.debug("onAddStream",event);
+		var prev = 0,prevFrames = 0,prevBytes = 0;
 		//Play it
 		addVideoForStream(event.stream);
-
+		//Get track
+		var track = event.stream.getVideoTracks()[0];
 		//Update stats
 		setInterval(function(){
+		
 			//Get stats
-			pc.getStats(function(stats) {
+			pc.getStats(track)
+				.then(function(results) {
 					//Get results
-					var results = stats.result();
-					for (var i=0;i<results.length;++i)
+					for (let result of results.values())
 					{
-						if (results[i].type==="ssrc")
+						if (result.type==="inbound-rtp")
 						{
-							var width = results[i].stat("googFrameWidthReceived");
-							var height = results[i].stat("googFrameHeightReceived");
-							var fps = results[i].stat("googFrameRateDecoded");
-							var bytes = results[i].stat("bytesReceived");
-							var mbps = (bytes-prev)*8/1024;
-							prev = bytes;
-							if (!width)
+							//Get timestamp delta
+							var delta = result.timestamp-prev;
+							//Store this ts
+							prev = result.timestamp;
+							
+							//Get values
+							var width = track.width;//result.stat("googFrameWidthReceived");
+							var height = track.height;//result.stat("googFrameHeightReceived");
+							var fps =  (result.framesDecoded-prevFrames)*1000/delta;
+							var kbps = (result.bytesReceived-prevBytes)*8/delta;
+							//Store last values
+							prevFrames = result.framesDecoded;
+							prevBytes  = result.bytesReceived;
+							//If first
+							if (delta==result.timestamp || isNaN(fps) || isNaN (kbps))
 								return;
+							
 							for (var i=4;i<targets.length;++i)
 								gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
 							gauges[4].set(width);
 							gauges[5].set(height);
-							gauges[6].set(fps);
-							gauges[7].set(Math.min(mbps,1024));
+							gauges[6].set(Math.min(Math.floor(fps)   ,30));
+							gauges[7].set(Math.min(Math.floor(kbps) ,1024));
 							texts[4].innerText = width;
 							texts[5].innerText = height;
-							texts[6].innerText = fps;
-							texts[7].innerText =  Math.floor(mbps);
+							texts[6].innerText = Math.floor(fps);
+							texts[7].innerText =  Math.floor(kbps);
 						}
 					}
-				}
-				,event.stream.getVideoTracks()[0]
-			);
+				});
 		},1000);
 			
 	};
@@ -150,27 +158,40 @@ function connect()
 		})
 		.then(function(stream){	
 			var prev = 0;
+			var prevFrames = 0;
+			var prevBytes = 0;
+			var track = stream.getVideoTracks()[0];
 			console.debug("getUserMedia sucess",stream);
 			//Play it
 			addVideoForStream(stream,true);
 			//Update stats
 			setInterval(function(){
 				//Get stats
-				pc.getStats(function(stats) {
+				pc.getStats(track)
+					.then(function(results) {
 						//Get results
-						var results = stats.result();
-						for (var i=0;i<results.length;++i)
+						for (let result of results.values())
 						{
-							if (results[i].type==="ssrc")
+							if (result.type==="outbound-rtp")
 							{
-								var width = results[i].stat("googFrameWidthSent");
-								var height = results[i].stat("googFrameHeightSent");
-								var fps = results[i].stat("googFrameRateSent");
-								var bytes = results[i].stat("bytesSent");
-								var mbps = (bytes-prev)*8/1024;
-								prev = bytes;
-								if (!width)
+								console.log(result);
+								//Get timestamp delta
+								var delta = result.timestamp-prev;
+								//Store this ts
+								prev = result.timestamp;
+
+								//Get values
+								var width = track.width;//result.stat("googFrameWidthReceived");
+								var height = track.height;//result.stat("googFrameHeightReceived");
+								var fps =  (result.framesEncoded-prevFrames)*1000/delta;
+								var kbps = (result.bytesSent-prevBytes)*8/delta;
+								//Store last values
+								prevFrames = result.framesEncoded;
+								prevBytes  = result.bytesSent;
+								//If first
+								if (delta==result.timestamp || isNaN(fps) || isNaN (kbps))
 									return;
+
 								for (var i=0;i<4;++i)
 									gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
 								gauges[0].maxValue = 640; 
@@ -179,28 +200,35 @@ function connect()
 								gauges[3].maxValue = 1024;
 								gauges[0].set(width);
 								gauges[1].set(height);
-								gauges[2].set(fps);
-								gauges[3].set(Math.min(mbps,1024));
+								gauges[2].set(Math.min(Math.floor(fps)   ,30));
+								gauges[3].set(Math.min(Math.floor(kbps) ,1024));
 								texts[0].innerText = width;
 								texts[1].innerText = height;
-								texts[2].innerText = fps;
-								texts[3].innerText = Math.floor(mbps);
+								texts[2].innerText = Math.floor(fps);
+								texts[3].innerText = Math.floor(kbps);
 							} 
 						}
-					}
-					,stream.getVideoTracks()[0]
-				);
+					});
 			},1000);
 			window.s = stream;
 			//Add stream to peer connection
 			pc.addStream(stream);
+			//Enable simulcast
+			pc.getSenders()[0].setParameters({
+				encodings: [
+					{ rid: "a"},
+					{ rid: "b" , scaleDownResolutionBy: 2.0 },
+					{ rid: "c" , scaleDownResolutionBy: 4.0 }
+				]
+			});
 			//Create new offer
 			return pc.createOffer();
 		})
 		.then(function(offer){
 			console.debug("createOffer sucess",offer);
 			//We have sdp
-			sdp = offer.sdp;
+			//Convert from simulcast_03 to simulcast
+			sdp = offer.sdp.replace(": send rid=",":send ");
 			//Set it
 			pc.setLocalDescription(offer);
 			console.log(sdp);
@@ -224,7 +252,8 @@ function connect()
 		console.log(msg.answer);
 		pc.setRemoteDescription(new RTCSessionDescription({
 				type:'answer',
-				sdp: msg.answer
+				//Convert from simulcast to simulcast_03
+				sdp: msg.answer.replace(":recv ",": recv rid=")
 			}), function () {
 				console.log("JOINED");
 			}, function (err) {
@@ -235,12 +264,14 @@ function connect()
 		var listener = function(event) 
 		{
 			//Get data
+			var rid = event.target.dataset["rid"];
 			var spatialLayerId = event.target.dataset["sid"];
 			var temporalLayerId = event.target.dataset["tid"];
 			//Send event
 			//Create room
 			ws.send(JSON.stringify({
 				cmd		: "SELECT_LAYER",
+				rid		: rid,
 				spatialLayerId	: spatialLayerId,
 				temporalLayerId	: temporalLayerId
 			}));

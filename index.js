@@ -21,7 +21,7 @@ const CodecInfo		= SemanticSDP.CodecInfo;
 
 //Check 
 if (process.argv.length!=3)
-	 throw new Error("Missing IP address\nUsage: node index.js <ip>"+process.argv.length);
+	 throw new Error("Missing IP address\nUsage: node index.js <ip>");
 //Get ip
 const ip = process.argv[2];
 
@@ -37,6 +37,7 @@ const options = {
 
 //Enable debug
 MediaServer.enableDebug(true);
+MediaServer.enableUltraDebug(true);
 
 //Create new streamer
 const streamer = MediaServer.createStreamer();
@@ -134,7 +135,8 @@ wsServer.on ('request', (request) => {
 				//Get cmd
 				if (msg.cmd==="OFFER")
 				{
-			
+					const streams = {};
+					
 					//Process the sdp
 					var offer = SDPInfo.process(msg.offer);
 					
@@ -143,6 +145,14 @@ wsServer.on ('request', (request) => {
 						dtls : offer.getDTLS(),
 						ice  : offer.getICE() 
 					});
+					
+					transport.on("targetbitrate",(bitrate)=> {
+						console.log("Sender side target bitrate estimation: "+(bitrate/1000)+"bps");
+						for (let streamId in streams)
+							console.log(JSON.stringify(streams[streamId].getStats(),null,2));
+					});
+					
+					transport.dump("/tmp/svc.pcap");
 
 					//Set RTP remote properties
 					 transport.setRemoteProperties({
@@ -185,7 +195,7 @@ wsServer.on ('request', (request) => {
 						if (fec!=null)
 							video.addCodec(fec);
 						//Limit incoming bitrate
-						video.setBitrate(1024);
+						//video.setBitrate(1024);
 
 						//Add video extensions
 						for (let [id, uri] of videoOffer.getExtensions().entries())
@@ -195,7 +205,7 @@ wsServer.on ('request', (request) => {
 						//Add it to answer
 						answer.addMedia(video);
 					}
-
+					
 					//Set RTP local  properties
 					transport.setLocalProperties({
 						video : answer.getMedia("video")
@@ -222,6 +232,132 @@ wsServer.on ('request', (request) => {
 
 						//Add local stream info it to the answer
 						answer.addStream(info);
+						
+						//Add to streams
+						streams[incomingStream.getId()] = incomingStream;
+					}
+					
+					//Send response
+					connection.sendUTF(JSON.stringify({
+						answer : answer.toString()
+					}));
+						
+					//Close on disconnect
+					connection.on("close",() => {
+						//Stop
+						transport.stop();
+					});
+				} else {
+					//Select layer
+					connection.transporder.selectLayer(parseInt(msg.spatialLayerId),parseInt(msg.temporalLayerId));
+				}
+			});
+			break;
+		}
+		case "simulcast":
+		{
+			const connection = request.accept(protocol);
+			
+			connection.on('message', (frame) =>
+			{
+				//Get cmd
+				var msg = JSON.parse(frame.utf8Data);
+				
+				
+				//Get cmd
+				if (msg.cmd==="OFFER")
+				{
+			
+					//Process the sdp
+					var offer = SDPInfo.process(msg.offer);
+					
+					//Create an DTLS ICE transport in that enpoint
+					const transport = endpoint.createTransport({
+						dtls : offer.getDTLS(),
+						ice  : offer.getICE() 
+					});
+
+					//Set RTP remote properties
+					 transport.setRemoteProperties({
+						audio : offer.getMedia("audio"),
+						video : offer.getMedia("video")
+					});
+
+					//Get local DTLS and ICE info
+					const dtls = transport.getLocalDTLSInfo();
+					const ice  = transport.getLocalICEInfo();
+
+					//Get local candidates
+					const candidates = endpoint.getLocalCandidates();
+
+					//Create local SDP info
+					let answer = new SDPInfo();
+					
+					//Add ice and dtls info
+					answer.setDTLS(dtls);
+					answer.setICE(ice);
+					//For each local candidate
+					for (let i=0;i<candidates.length;++i)
+						//Add candidate to media info
+						answer.addCandidate(candidates[i]);
+
+					//Get remote video m-line info 
+					let videoOffer = offer.getMedia("video");
+
+					//If offer had video
+					if (videoOffer)
+					{
+						//Create video answer
+						const video = videoOffer.answer({
+							codecs: CodecInfo.MapFromNames(["VP8"], true),
+							extensions: new Set([
+								"urn:ietf:params:rtp-hdrext:toffset",
+								"http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
+								"urn:3gpp:video-orientation",
+								"http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
+								"http://www.webrtc.org/experiments/rtp-hdrext/playout-delay",	
+								"urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id",
+								"urn:ietf:params:rtp-hdrext:sdes:repair-rtp-stream-id",
+								"urn:ietf:params:rtp-hdrext:sdes:mid",
+							]),
+							simulcast: true
+						});
+
+						//Add it to answer
+						answer.addMedia(video);
+					}
+
+					//Set RTP local  properties
+					transport.setLocalProperties({
+						video : answer.getMedia("video")
+					});
+					
+					//Create recoreder
+					const recorder = MediaServer.createRecorder ("/tmp/"+(new Date()) +".mp4");
+
+					//For each stream offered
+					for (let offered of offer.getStreams().values())
+					{
+						//Create the remote stream into the transport
+						const incomingStream = transport.createIncomingStream(offered);
+
+						//Create new local stream
+						const outgoingStream  = transport.createOutgoingStream({
+							audio: false,
+							video: true
+						});
+
+						//Get local stream info
+						const info = outgoingStream.getStreamInfo();
+
+						//Copy incoming data from the remote stream to the local one
+						connection.transporder = outgoingStream.attachTo(incomingStream)[0];
+
+						//Add local stream info it to the answer
+						answer.addStream(info);
+						
+						//Record it
+						recorder.record(incomingStream);
 					}
 					
 					//Send response
@@ -231,13 +367,14 @@ wsServer.on ('request', (request) => {
 						
 					//Close on disconnect
 					connection.on("close",() => {
-						//Stop
-
+						//Stop transport an recorded
 						transport.stop();
+						recorder.stop();
 					});
 				} else {
+					connection.transporder.selectEncoding(msg.rid);
 					//Select layer
-					connection.transporder.selectLayer(parseInt(msg.spatialLayerId),parseInt(msg.temporalLayerId));
+					//connection.transporder.selectLayer(parseInt(msg.spatialLayerId),parseInt(msg.temporalLayerId));
 				}
 			});
 			break;
@@ -250,7 +387,6 @@ wsServer.on ('request', (request) => {
 			{
 				//Get cmd
 				var msg = JSON.parse(frame.utf8Data);
-				
 				
 				//Get cmd
 				if (msg.cmd==="OFFER")
@@ -321,11 +457,11 @@ wsServer.on ('request', (request) => {
 						let  video = new MediaInfo(videoOffer.getId(), "video");
 						
 						//Get codec types
-						let vp8 = videoOffer.getCodec("vp8");
+						let vp9 = videoOffer.getCodec("vp9");
 						//Add video codecs
-						video.addCodec(vp8);
+						video.addCodec(vp9);
 						//Limit incoming bitrate
-						video.setBitrate(1024);
+						//video.setBitrate(1024);
 
 						//Add video extensions
 						for (let [id, uri] of videoOffer.getExtensions().entries())
