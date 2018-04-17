@@ -94,46 +94,50 @@ function connect()
 		//Get track
 		var track = event.stream.getVideoTracks()[0];
 		//Update stats
-		setInterval(function(){
-		
-			//Get stats
-			pc.getStats()
-				.then(function(results) {
-					//Get results
-					for (let result of results.values())
-					{
-						if (result.type==="inbound-rtp")
-						{
-							//Get timestamp delta
-							var delta = result.timestamp-prev;
-							//Store this ts
-							prev = result.timestamp;
+		setInterval(async function(){
+			var results;
+			
+			try {
+				//For ff
+				results = await pc.getStats(track);
+			} catch(e) {
+				//For chrome
+				results = await pc.getStats();
+			}
+			//Get results
+			for (let result of results.values())
+			{
+				if (result.type==="inbound-rtp")
+				{
+					//Get timestamp delta
+					var delta = result.timestamp-prev;
+					//Store this ts
+					prev = result.timestamp;
 
-							//Get values
-							var width = track.width || remote.videoWidth;//result.stat("googFrameWidthReceived");
-							var height = track.height || remote.videoHeight;//result.stat("googFrameHeightReceived");
-							var fps =  (result.framesDecoded-prevFrames)*1000/delta;
-							var kbps = (result.bytesReceived-prevBytes)*8/delta;
-							//Store last values
-							prevFrames = result.framesDecoded;
-							prevBytes  = result.bytesReceived;
-							//If first
-							if (delta==result.timestamp || isNaN(fps) || isNaN (kbps))
-								return;
-							
-							for (var i=4;i<targets.length;++i)
-								gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
-							gauges[4].set(width);
-							gauges[5].set(height);
-							gauges[6].set(Math.min(Math.floor(fps)   ,30));
-							gauges[7].set(Math.min(Math.floor(kbps) ,1024));
-							texts[4].innerText = width;
-							texts[5].innerText = height;
-							texts[6].innerText = Math.floor(fps);
-							texts[7].innerText =  Math.floor(kbps);
-						}
-					}
-				});
+					//Get values
+					var width = track.width || remote.videoWidth;//result.stat("googFrameWidthReceived");
+					var height = track.height || remote.videoHeight;//result.stat("googFrameHeightReceived");
+					var fps =  (result.framesDecoded-prevFrames)*1000/delta;
+					var kbps = (result.bytesReceived-prevBytes)*8/delta;
+					//Store last values
+					prevFrames = result.framesDecoded;
+					prevBytes  = result.bytesReceived;
+					//If first
+					if (delta==result.timestamp || isNaN(fps) || isNaN (kbps))
+						return;
+
+					for (var i=4;i<targets.length;++i)
+						gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
+					gauges[4].set(width);
+					gauges[5].set(height);
+					gauges[6].set(Math.min(Math.floor(fps)   ,30));
+					gauges[7].set(Math.min(Math.floor(kbps) ,1024));
+					texts[4].innerText = width;
+					texts[5].innerText = height;
+					texts[6].innerText = Math.floor(fps);
+					texts[7].innerText =  Math.floor(kbps);
+				}
+			}
 		},1000);
 			
 	};
@@ -160,51 +164,55 @@ function connect()
 			//Play it
 			addVideoForStream(stream,true);
 			//Update stats
-			setInterval(function(){
-				//Get stats
-				pc.getStats()
-					.then(function(results) {
-						//Get results
-						for (let result of results.values())
-						{
-							if (result.type==="outbound-rtp")
-							{
-								
-								//Get timestamp delta
-								var delta = result.timestamp-prev;
-								//Store this ts
-								prev = result.timestamp;
+			setInterval(async function(){
+				var results;
+				try {
+					//For ff
+					results = await pc.getStats(track);
+				} catch(e) {
+					//For chrome
+					results = await pc.getStats();
+				}
+				//Get results
+				for (let result of results.values())
+				{
+					if (result.type==="outbound-rtp")
+					{
 
-								//Get values
-								var width = track.width || local.videoWidth;//result.stat("googFrameWidthReceived");
-								var height = track.height || local.videoHeight;//result.stat("googFrameHeightReceived");
-								var fps =  (result.framesEncoded-prevFrames)*1000/delta;
-								var kbps = (result.bytesSent-prevBytes)*8/delta;
-								//Store last values
-								prevFrames = result.framesEncoded;
-								prevBytes  = result.bytesSent;
-								//If first
-								if (delta==result.timestamp || isNaN(fps) || isNaN (kbps))
-									return;
+						//Get timestamp delta
+						var delta = result.timestamp-prev;
+						//Store this ts
+						prev = result.timestamp;
 
-								for (var i=0;i<4;++i)
-									gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
-								gauges[0].maxValue = 640; 
-								gauges[1].maxValue = 480; 
-								gauges[2].maxValue = 30; 
-								gauges[3].maxValue = 1024;
-								gauges[0].set(width);
-								gauges[1].set(height);
-								gauges[2].set(Math.min(Math.floor(fps)   ,30));
-								gauges[3].set(Math.min(Math.floor(kbps) ,1024));
-								texts[0].innerText = width;
-								texts[1].innerText = height;
-								texts[2].innerText = Math.floor(fps);
-								texts[3].innerText = Math.floor(kbps);
-								return;
-							}
-						}
-					});
+						//Get values
+						var width = track.width || local.videoWidth;//result.stat("googFrameWidthReceived");
+						var height = track.height || local.videoHeight;//result.stat("googFrameHeightReceived");
+						var fps =  (result.framesEncoded-prevFrames)*1000/delta;
+						var kbps = (result.bytesSent-prevBytes)*8/delta;
+						//Store last values
+						prevFrames = result.framesEncoded;
+						prevBytes  = result.bytesSent;
+						//If first
+						if (delta==result.timestamp || isNaN(fps) || isNaN (kbps))
+							return;
+
+						for (var i=0;i<4;++i)
+							gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
+						gauges[0].maxValue = 640; 
+						gauges[1].maxValue = 480; 
+						gauges[2].maxValue = 30; 
+						gauges[3].maxValue = 1024;
+						gauges[0].set(width);
+						gauges[1].set(height);
+						gauges[2].set(Math.min(Math.floor(fps)   ,30));
+						gauges[3].set(Math.min(Math.floor(kbps) ,1024));
+						texts[0].innerText = width;
+						texts[1].innerText = height;
+						texts[2].innerText = Math.floor(fps);
+						texts[3].innerText = Math.floor(kbps);
+						return;
+					}
+				}
 			},1000);
 			window.s = stream;
 			//Add stream to peer connection
@@ -234,10 +242,10 @@ function connect()
 			
 			try {
 				//OK, chrome way
-				const reg1 = /m=video.*?a=ssrc:(\d*) cname:(.+?)\r\n/s;
-				const reg2 = /m=video.*?a=ssrc:(\d*) mslabel:(.+?)\r\n/s;
-				const reg3 = /m=video.*?a=ssrc:(\d*) msid:(.+?)\r\n/s;
-				const reg4 = /m=video.*?a=ssrc:(\d*) label:(.+?)\r\n/s;
+				const reg1 = RegExp("m=video.*\?a=ssrc:(\\d*) cname:(.+?)\\r\\n","s");
+				const reg2 = RegExp("m=video.*\?a=ssrc:(\\d*) mslabel:(.+?)\\r\\n","s");
+				const reg3 = RegExp("m=video.*\?a=ssrc:(\\d*) msid:(.+?)\\r\\n","s");
+				const reg4 = RegExp("m=video.*\?a=ssrc:(\\d*) label:(.+?)\\r\\n","s");
 				//Get ssrc and cname
 				let res = reg1.exec(sdp);
 				const ssrc = res[1];
