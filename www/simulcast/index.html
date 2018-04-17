@@ -23,7 +23,6 @@
 			table {
 				    margin: 10px;
 				    position: relative;
-				    left: -40px;
 			}
 
 			video {
@@ -182,22 +181,22 @@
 				<td>FPS</td>
 			</tr>
 			<tr>
-				<td>320x240</td>
-				<td><button data-rid="a" data-tid="0" class="mdl-button mdl-js-button mdl-button--raised">Layer RID A T0</button></td>
+				<td>640x480</td>
+				<td><button data-rid="a" data-tid="0" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Layer RID A T0</button></td>
 				<td><button data-rid="a" data-tid="1" class="mdl-button mdl-js-button mdl-button--raised">Layer RID A  T1</button></td>
 				<td><button data-rid="a" data-tid="2" class="mdl-button mdl-js-button mdl-button--raised">Layer RID A  T2</button></td>
 			</tr>
 			<tr>
-				<td>640x480</td>
+				<td>320x240</td>
 				<td><button data-rid="b" data-tid="0" class="mdl-button mdl-js-button mdl-button--raised">Layer RID B T0</button></td>
 				<td><button data-rid="b" data-tid="1" class="mdl-button mdl-js-button mdl-button--raised">Layer RID B T1</button></td>
 				<td><button data-rid="b" data-tid="2" class="mdl-button mdl-js-button mdl-button--raised">Layer RID B T2</button></td>
 			</tr>
 			<tr>
-				<td>640x480</td>
+				<td>160x120</td>
 				<td><button data-rid="c" data-tid="0" class="mdl-button mdl-js-button mdl-button--raised">Layer RID C T0</button></td>
 				<td><button data-rid="c" data-tid="1" class="mdl-button mdl-js-button mdl-button--raised">Layer RID C T1</button></td>
-				<td><button data-rid="c" data-tid="2" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Layer RID C T2</button></td>
+				<td><button data-rid="c" data-tid="2" class="mdl-button mdl-js-button mdl-button--raised">Layer RID C T2</button></td>
 			</tr>
 		</table>	
 		<div class="gaugeChartContainer">
@@ -269,22 +268,11 @@
 		<h4 class="mdl-dialog__title">Ready to test VP8 Simulcast layer selection?</h4>
 		<div class="mdl-dialog__content">
 			<p>
-				This demo allows you to test the VP9 SVC layer selection which will be a key functionality of the <a href="https://github.com/medooze/sfu">Medooze SFU</a>.
+				This demo allows you to test the P8 Simulcast layer selection</a>.
 			</p>
 			<p>
-				When SVC is enabled on latest Chrome version, it will send 3 different Temporal Layers and 2 Spatial layers. Chrome will send a single media stream to our SFU containing all SVC layers, and you will be able to select which layers the SFU send backs to you.
+				This uses standard WebRTC rid/encodings api, so it only works on firefox currently
 			</p>
-			<p>
-				By swithcing between the different layers you will be able to retrieve different sizes and fps from a single encoding, lowering the bandwith requirements without requiring extra processing power. 
-			</p>
-			<p>
-				<b>Important:</b> This demo only works only works on Google Canary and you must enable VP9 SVC by running it with the following command line
-			</p>
-			<pre>
-				<code>
- chrome.exe --force-fieldtrials=WebRTC-SupportVP9SVC	
-				</code>
-			</pre>
 		</div>
 		<div class="mdl-dialog__actions">
 			<button type="button" class="ready mdl-button mdl-button mdl-button--raised  mdl-button--accent">Ready!</button>

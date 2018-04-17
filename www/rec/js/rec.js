@@ -8,10 +8,8 @@ function addVideoForStream(stream,muted)
 {
 	//Create new video element
 	const video = document.querySelector (muted ? "#local" : "#remote");
-	//Set same id
-	video.id = stream.id;
 	//Set src stream
-	video.src = URL.createObjectURL(stream);
+	video.srcObject = stream;
 	//Set other properties
 	video.autoplay = true;
 	video.muted = muted;
@@ -37,8 +35,6 @@ function connect()
 
 	if (window.RTCPeerConnection)
 		pc = new RTCPeerConnection({
-			bundlePolicy	: "max-bundle",
-			rtcpMuxPolicy	: "require",
 			mediaCryptoKey	: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkw",
 			mediaCryptoSuite: "AES_CM_128_HMAC_SHA1_80"
 		});

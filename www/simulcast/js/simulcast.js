@@ -36,15 +36,16 @@ gauges[6].maxValue = 30;
 gauges[7].maxValue = 1024;
 
 var texts =  document.querySelectorAll('.gaugeChartLabel');
+var ssrcs;
 
 function addVideoForStream(stream,muted)
 {
 	//Create new video element
 	const video = document.querySelector (muted ? "#local" : "#remote");
 	//Set same id
-	video.id = stream.id;
+	video.streamid = stream.id;
 	//Set src stream
-	video.src = URL.createObjectURL(stream);
+	video.srcObject = stream;
 	//Set other properties
 	video.autoplay = true;
 	video.muted = muted;
@@ -81,15 +82,9 @@ var pc;
 	
 function connect() 
 {
+	//Create PC
+	pc = new RTCPeerConnection();
 
-	if (window.RTCPeerConnection)
-		pc = new RTCPeerConnection({
-			bundlePolicy: "max-bundle",
-			rtcpMuxPolicy : "require"
-		});
-	else 
-		pc = new webkitRTCPeerConnection(null);
-	
 	var ws = new WebSocket(url,"simulcast");
 	
 	pc.onaddstream = function(event) {
@@ -102,7 +97,7 @@ function connect()
 		setInterval(function(){
 		
 			//Get stats
-			pc.getStats(track)
+			pc.getStats()
 				.then(function(results) {
 					//Get results
 					for (let result of results.values())
@@ -113,10 +108,10 @@ function connect()
 							var delta = result.timestamp-prev;
 							//Store this ts
 							prev = result.timestamp;
-							
+
 							//Get values
-							var width = track.width;//result.stat("googFrameWidthReceived");
-							var height = track.height;//result.stat("googFrameHeightReceived");
+							var width = track.width || remote.videoWidth;//result.stat("googFrameWidthReceived");
+							var height = track.height || remote.videoHeight;//result.stat("googFrameHeightReceived");
 							var fps =  (result.framesDecoded-prevFrames)*1000/delta;
 							var kbps = (result.bytesReceived-prevBytes)*8/delta;
 							//Store last values
@@ -167,22 +162,22 @@ function connect()
 			//Update stats
 			setInterval(function(){
 				//Get stats
-				pc.getStats(track)
+				pc.getStats()
 					.then(function(results) {
 						//Get results
 						for (let result of results.values())
 						{
 							if (result.type==="outbound-rtp")
 							{
-								console.log(result);
+								
 								//Get timestamp delta
 								var delta = result.timestamp-prev;
 								//Store this ts
 								prev = result.timestamp;
 
 								//Get values
-								var width = track.width;//result.stat("googFrameWidthReceived");
-								var height = track.height;//result.stat("googFrameHeightReceived");
+								var width = track.width || local.videoWidth;//result.stat("googFrameWidthReceived");
+								var height = track.height || local.videoHeight;//result.stat("googFrameHeightReceived");
 								var fps =  (result.framesEncoded-prevFrames)*1000/delta;
 								var kbps = (result.bytesSent-prevBytes)*8/delta;
 								//Store last values
@@ -206,29 +201,87 @@ function connect()
 								texts[1].innerText = height;
 								texts[2].innerText = Math.floor(fps);
 								texts[3].innerText = Math.floor(kbps);
-							} 
+								return;
+							}
 						}
 					});
 			},1000);
 			window.s = stream;
 			//Add stream to peer connection
 			pc.addStream(stream);
-			//Enable simulcast
-			pc.getSenders()[0].setParameters({
-				encodings: [
-					{ rid: "a"},
-					{ rid: "b" , scaleDownResolutionBy: 2.0 },
-					{ rid: "c" , scaleDownResolutionBy: 4.0 }
-				]
-			});
+			//Check API "compatibility"
+			if (pc.getSenders()[0].setParameters)
+			{
+				try {
+					//Enable simulcast
+					pc.getSenders()[0].setParameters({
+						encodings: [
+							{ rid: "a"},
+							{ rid: "b" , scaleDownResolutionBy: 2.0 },
+							{ rid: "c" , scaleDownResolutionBy: 4.0 }
+						]
+					});
+				} catch(e) {
+				}
+			}
 			//Create new offer
 			return pc.createOffer();
 		})
 		.then(function(offer){
 			console.debug("createOffer sucess",offer);
-			//We have sdp
 			//Convert from simulcast_03 to simulcast
 			sdp = offer.sdp.replace(": send rid=",":send ");
+			
+			try {
+				//OK, chrome way
+				const reg1 = /m=video.*?a=ssrc:(\d*) cname:(.+?)\r\n/s;
+				const reg2 = /m=video.*?a=ssrc:(\d*) mslabel:(.+?)\r\n/s;
+				const reg3 = /m=video.*?a=ssrc:(\d*) msid:(.+?)\r\n/s;
+				const reg4 = /m=video.*?a=ssrc:(\d*) label:(.+?)\r\n/s;
+				//Get ssrc and cname
+				let res = reg1.exec(sdp);
+				const ssrc = res[1];
+				const cname = res[2];
+				//Get other params
+				const mslabel = reg2.exec(sdp)[2];
+				const msid = reg3.exec(sdp)[2];
+				const label = reg4.exec(sdp)[2];
+				//Add simulcasts ssrcs
+				const num = 2;
+				const ssrcs = [ssrc];
+
+				for (let i=0;i<num;++i)
+				{
+					//Create new ssrcs
+					const ssrc = 100+i*2;
+					const rtx   = ssrc+1;
+					//Add to ssrc list
+					ssrcs.push(ssrc);
+					//Add sdp stuff
+					sdp +=	"a=ssrc-group:FID " + ssrc + " " + rtx + "\r\n" +
+						"a=ssrc:" + ssrc + " cname:" + cname + "\r\n" +
+						"a=ssrc:" + ssrc + " msid:" + msid + "\r\n" +
+						"a=ssrc:" + ssrc + " mslabel:" + mslabel + "\r\n" +
+						"a=ssrc:" + ssrc + " label:" + label + "\r\n" +
+						"a=ssrc:" + rtx + " cname:" + cname + "\r\n" +
+						"a=ssrc:" + rtx + " msid:" + msid + "\r\n" +
+						"a=ssrc:" + rtx + " mslabel:" + mslabel + "\r\n" +
+						"a=ssrc:" + rtx + " label:" + label + "\r\n";
+				}
+				//Add SIM group
+				sdp += "a=ssrc-group:SIM " + ssrcs.join(" ") + "\r\n";
+				//Add RID equivalent
+				sdp += "a=simulcast:send a;b;c\r\n";
+				sdp += "a=rid:a send ssrc="+ssrcs[1]+"\r\n";
+				sdp += "a=rid:b send ssrc="+ssrcs[0]+"\r\n";
+				sdp += "a=rid:c send ssrc="+ssrcs[2]+"\r\n";
+				sdp += "a=x-google-flag:conference\r\n";
+				//Update sdp in offer to
+				offer.sdp = sdp;
+			} catch(e) {
+				console.error(e);
+			}
+			
 			//Set it
 			pc.setLocalDescription(offer);
 			console.log(sdp);
@@ -236,6 +289,13 @@ function connect()
 			ws.send(JSON.stringify({
 				cmd		: "OFFER",
 				offer		: sdp
+			}));
+			//Select simulcast layer
+			ws.send(JSON.stringify({
+				cmd		: "SELECT_LAYER",
+				rid		: "a",
+				spatialLayerId	: 0,
+				temporalLayerId	: 2
 			}));
 		})
 		.catch(function(error){
@@ -249,11 +309,17 @@ function connect()
 		//Get protocol message
 		const msg = JSON.parse(event.data);
 		
+		//Get sdp
+		let sdp = msg.answer.replace(":recv ",": recv rid=")
+		
+		//Add custom flag
+		sdp += "a=x-google-flag:conference\r\n";
+		
 		console.log(msg.answer);
 		pc.setRemoteDescription(new RTCSessionDescription({
 				type:'answer',
 				//Convert from simulcast to simulcast_03
-				sdp: msg.answer.replace(":recv ",": recv rid=")
+				sdp: sdp
 			}), function () {
 				console.log("JOINED");
 			}, function (err) {
@@ -265,14 +331,12 @@ function connect()
 		{
 			//Get data
 			var rid = event.target.dataset["rid"];
-			var spatialLayerId = event.target.dataset["sid"];
 			var temporalLayerId = event.target.dataset["tid"];
-			//Send event
-			//Create room
+			//Select simulcast layer
 			ws.send(JSON.stringify({
 				cmd		: "SELECT_LAYER",
 				rid		: rid,
-				spatialLayerId	: spatialLayerId,
+				spatialLayerId	: 0,
 				temporalLayerId	: temporalLayerId
 			}));
 			//Remove
