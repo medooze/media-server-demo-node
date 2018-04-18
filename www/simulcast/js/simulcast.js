@@ -255,7 +255,7 @@ function connect()
 				const msid = reg3.exec(sdp)[2];
 				const label = reg4.exec(sdp)[2];
 				//Add simulcasts ssrcs
-				const num = 2;
+				const num = 1;
 				const ssrcs = [ssrc];
 
 				for (let i=0;i<num;++i)
@@ -279,11 +279,12 @@ function connect()
 				//Add SIM group
 				sdp += "a=ssrc-group:SIM " + ssrcs.join(" ") + "\r\n";
 				//Add RID equivalent
-				sdp += "a=simulcast:send a;b;c\r\n";
+				sdp += "a=simulcast:send a;b\r\n";
 				sdp += "a=rid:a send ssrc="+ssrcs[1]+"\r\n";
 				sdp += "a=rid:b send ssrc="+ssrcs[0]+"\r\n";
-				sdp += "a=rid:c send ssrc="+ssrcs[2]+"\r\n";
 				sdp += "a=x-google-flag:conference\r\n";
+				//Disable third row
+				document.querySelector("tr[data-rid='c']").style.display = 'none';
 				//Update sdp in offer to
 				offer.sdp = sdp;
 			} catch(e) {
@@ -301,7 +302,7 @@ function connect()
 			//Select simulcast layer
 			ws.send(JSON.stringify({
 				cmd		: "SELECT_LAYER",
-				rid		: "a",
+				rid		: "b",
 				spatialLayerId	: 0,
 				temporalLayerId	: 2
 			}));

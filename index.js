@@ -24,8 +24,8 @@ const options = {
 };
 
 //Enable debug
-MediaServer.enableDebug(false);
-MediaServer.enableUltraDebug(false);
+MediaServer.enableDebug(true);
+MediaServer.enableUltraDebug(true);
 
 // maps file extention to MIME typere
 const map = {
