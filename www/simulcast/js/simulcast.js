@@ -1,6 +1,5 @@
 const url = "wss://"+window.location.hostname+":"+window.location.port;
 
-const roomId = (new Date()).getTime() + "-" + Math.random();
 
 var opts = {
 	lines: 12, // The number of lines to draw
@@ -50,18 +49,7 @@ function addVideoForStream(stream,muted)
 	video.autoplay = true;
 	video.muted = muted;
 }
-function removeVideoForStream(stream)
-{
-	//Get video
-	var video = document.getElementById(stream.id);
-	//Remove it when done
-	video.addEventListener('webkitTransitionEnd',function(){
-            //Delete it
-	    video.parentElement.removeChild(video);
-        });
-	//Disable it first
-	video.className = "disabled";
-}
+
 //Get user media promise based
 function  getUserMedia(constrains)
 {
@@ -89,6 +77,7 @@ function connect()
 	
 	pc.onaddstream = function(event) {
 		var prev = 0,prevFrames = 0,prevBytes = 0;
+		console.debug("onAddStream",event);
 		//Play it
 		addVideoForStream(event.stream);
 		//Get track
@@ -141,13 +130,7 @@ function connect()
 		},1000);
 			
 	};
-	
-	pc.onremovestream = function(event) {
-		console.debug("onRemoveStream",event);
-		//Play it
-		removeVideoForStream(event.stream);
-	};
-	
+
 	ws.onopen = function(){
 		console.log("opened");
 		
@@ -210,7 +193,6 @@ function connect()
 						texts[1].innerText = height;
 						texts[2].innerText = Math.floor(fps);
 						texts[3].innerText = Math.floor(kbps);
-						return;
 					}
 				}
 			},1000);
