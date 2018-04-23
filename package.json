@@ -1,6 +1,6 @@
 {
   "name": "medooze-media-server-demo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Demo application for the Medooze Media Server for Node.js",
   "main": "index.js",
   "scripts": {
