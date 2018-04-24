@@ -32,14 +32,7 @@ var pc;
 	
 function connect() 
 {
-
-	if (window.RTCPeerConnection)
-		pc = new RTCPeerConnection({
-			mediaCryptoKey	: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkw",
-			mediaCryptoSuite: "AES_CM_128_HMAC_SHA1_80"
-		});
-	else 
-		pc = new webkitRTCPeerConnection(null);
+	pc = new RTCPeerConnection(null);
 	
 	var ws = new WebSocket(url,"rec");
 	
