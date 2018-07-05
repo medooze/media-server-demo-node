@@ -176,7 +176,7 @@ function connect()
 						//Store this ts
 						prev = result.timestamp;
 						//Get values
-						var fps =  (result.framesEncoded-prevFrames)*1000/delta;
+						var fps =  ((result.framesEncoded-prevFrames)*1000/delta)/2;
 						var kbps = (result.bytesSent-prevBytes)*8/delta;
 						//Store last values
 						prevFrames = result.framesEncoded;

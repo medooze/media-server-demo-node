@@ -24,8 +24,11 @@ const options = {
 };
 
 //Enable debug
-MediaServer.enableDebug(true);
-MediaServer.enableUltraDebug(true);
+MediaServer.enableDebug(false);
+MediaServer.enableUltraDebug(false);
+
+//Restrict port range
+MediaServer.setPortRange(10000,20000);
 
 // maps file extention to MIME typere
 const map = {
