@@ -96,6 +96,7 @@ const handlers = {
 	"rec"		: require("./lib/recording.js"),
 	"broadcast"	: require("./lib/broadcast.js"),
 	"simulcast"	: require("./lib/simulcast.js"),
+	"playback"	: require("./lib/playback.js"),
 };
 
 wsServer.on ('request', (request) => {

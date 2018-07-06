@@ -64,6 +64,7 @@ function connect()
 		
 	//Create new offer
 	pc.createOffer({
+			offerToReceiveAudio: true,
 			offerToReceiveVideo: true
 		})
 		.then(function(offer){
@@ -96,6 +97,10 @@ function connect()
 				sdp: msg.answer
 			}), function () {
 				console.log("JOINED");
+				//Start playing
+				ws.send(JSON.stringify({
+					cmd		: "PLAY"
+				}));
 			}, function (err) {
 				console.error("Error joining",err);
 			}

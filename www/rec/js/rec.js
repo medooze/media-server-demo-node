@@ -56,7 +56,10 @@ function connect()
 		
 		navigator.mediaDevices.getUserMedia({
 			audio: true,
-			video: true
+			video:  {
+				width		: { min: 1280	, max: 1280	},
+				height		: { min: 720	, max: 720	},
+			}
 		})
 		.then(function(stream){	
 			var prev = 0;
@@ -84,6 +87,7 @@ function connect()
 		})
 		.catch(function(error){
 			console.error("Error",error);
+			alert(error);
 		});
 	};
 	
