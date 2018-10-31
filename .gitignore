@@ -1,3 +1,6 @@
+server.cert
+server.key
+
 # Logs
 logs
 *.log
