@@ -1,6 +1,6 @@
 {
   "name": "medooze-media-server-demo",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Demo application for the Medooze Media Server for Node.js",
   "main": "index.js",
   "scripts": {
@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/murillo128/media-server-demo-node#readme",
   "dependencies": {
+    "medooze-media-server": "^0.53.1",
     "semantic-sdp": "^3.16.0",
     "websocket": "^1.0.26"
   }
