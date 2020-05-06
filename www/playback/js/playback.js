@@ -10,7 +10,7 @@ function addVideoForStream(stream,muted)
 	//Set same id
 	video.id = stream.id;
 	//Set src stream
-	video.src = URL.createObjectURL(stream);
+	video.srcObject = stream;
 	//Set other properties
 	video.autoplay = true;
 	video.muted = muted;
@@ -97,14 +97,22 @@ function connect()
 				sdp: msg.answer
 			}), function () {
 				console.log("JOINED");
-				//Start playing
-				ws.send(JSON.stringify({
-					cmd		: "PLAY"
-				}));
+				
 			}, function (err) {
 				console.error("Error joining",err);
 			}
 		);
+		pc.addEventListener("connectionstatechange",(event)=>{
+			if (pc.connectionState=="connected")
+			{
+				console.log("CONNECTED");
+				//Start playing
+				ws.send(JSON.stringify({
+					cmd		: "PLAY"
+				}));
+			}
+		});
+	
 	};
 }
 

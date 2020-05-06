@@ -1,5 +1,39 @@
 const url = "wss://"+window.location.hostname+":"+window.location.port;
 
+let videoResolution = true;
+//Get our url
+const href = new URL (window.location.href);
+if (href.searchParams.has ("video"))
+	switch (href.searchParams.get ("video").toLowerCase ())
+	{
+		case "1080p":
+			videoResolution = {
+				width: {min: 1920, max: 1920},
+				height: {min: 1080, max: 1080},
+			};
+			break;
+		case "720p":
+			videoResolution = {
+				width: {min: 1280, max: 1280},
+				height: {min: 720, max: 720},
+			};
+			break;
+		case "576p":
+			videoResolution = {
+				width: {min: 720, max: 720},
+				height: {min: 576, max: 576},
+			};
+			break;
+		case "480p":
+			videoResolution = {
+				width: {min: 640, max: 640},
+				height: {min: 480, max: 480},
+			};
+			break;
+		case "no":
+			videoResolution = false;
+			break;
+	}
 const roomId = (new Date()).getTime() + "-" + Math.random();
 
 var texts =  document.querySelectorAll('.gaugeChartLabel');
@@ -56,10 +90,7 @@ function connect()
 		
 		navigator.mediaDevices.getUserMedia({
 			audio: true,
-			video:  {
-				width		: { min: 1280	, max: 1280	},
-				height		: { min: 720	, max: 720	},
-			}
+			video:  videoResolution
 		})
 		.then(function(stream){	
 			var prev = 0;

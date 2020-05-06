@@ -1,6 +1,39 @@
 const url = "wss://"+window.location.hostname+":"+window.location.port;
 
-
+let videoResolution = true;
+//Get our url
+const href = new URL (window.location.href);
+if (href.searchParams.has ("video"))
+	switch (href.searchParams.get ("video").toLowerCase ())
+	{
+		case "1080p":
+			videoResolution = {
+				width: {min: 1920, max: 1920},
+				height: {min: 1080, max: 1080},
+			};
+			break;
+		case "720p":
+			videoResolution = {
+				width: {min: 1280, max: 1280},
+				height: {min: 720, max: 720},
+			};
+			break;
+		case "576p":
+			videoResolution = {
+				width: {min: 720, max: 720},
+				height: {min: 576, max: 576},
+			};
+			break;
+		case "480p":
+			videoResolution = {
+				width: {min: 640, max: 640},
+				height: {min: 480, max: 480},
+			};
+			break;
+		case "no":
+			videoResolution = false;
+			break;
+	}
 var opts = {
 	lines: 12, // The number of lines to draw
 	angle: 0.15, // The length of each line
@@ -25,16 +58,20 @@ for (var i=0;i<targets.length;++i)
 	gauges[i].animationSpeed = 10000; // set animation speed (32 is default value)
 	gauges[i].set (0); // set actual value
 }
-gauges[0].maxValue = 640; 
-gauges[1].maxValue = 480; 
-gauges[2].maxValue = 30; 
-gauges[3].maxValue = 1024; 
-gauges[4].maxValue = 640; 
-gauges[5].maxValue = 480; 
-gauges[6].maxValue = 30; 
-gauges[7].maxValue = 1024;
+var texts =  document.querySelectorAll('.gaugeChartLabel');
+var max =  document.querySelectorAll('.gaugeChartMax');
+
+max[0].innerText = gauges[0].maxValue = videoResolution.width ? videoResolution.width.max : 640; 
+max[1].innerText = gauges[1].maxValue = videoResolution.height ? videoResolution.height.max : 480;
+max[2].innerText = gauges[2].maxValue = 30; 
+max[3].innerText = gauges[3].maxValue = 2048; 
+max[4].innerText = gauges[4].maxValue = videoResolution.width ? videoResolution.width.max : 640; 
+max[5].innerText = gauges[5].maxValue = videoResolution.height ? videoResolution.height.max : 480;
+max[6].innerText = gauges[6].maxValue = 30; 
+max[7].innerText = gauges[7].maxValue = 2048;
 
 var texts =  document.querySelectorAll('.gaugeChartLabel');
+var max =  document.querySelectorAll('.gaugeChartLabel');
 
 function addVideoForStream(stream,muted)
 {
@@ -119,7 +156,7 @@ function connect()
 					for (var i=4;i<targets.length;++i)
 						gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
 					gauges[6].set(Math.min(Math.floor(fps)   ,30));
-					gauges[7].set(Math.min(Math.floor(kbps) ,1024));
+					gauges[7].set(Math.min(Math.floor(kbps) ,gauges[7].maxValue));
 					texts[6].innerText = Math.floor(fps);
 					texts[7].innerText =  Math.floor(kbps);
 				} else if (result.type==="track") {
@@ -141,7 +178,7 @@ function connect()
 		
 		navigator.mediaDevices.getUserMedia({
 			audio: false,
-			video: true
+			video: videoResolution
 		})
 		.then(function(stream){	
 			var prev = 0;
@@ -176,7 +213,7 @@ function connect()
 						//Store this ts
 						prev = result.timestamp;
 						//Get values
-						var fps =  ((result.framesEncoded-prevFrames)*1000/delta)/2;
+						var fps =  ((result.framesEncoded-prevFrames)*1000/delta);
 						var kbps = (result.bytesSent-prevBytes)*8/delta;
 						//Store last values
 						prevFrames = result.framesEncoded;
@@ -187,12 +224,8 @@ function connect()
 
 						for (var i=0;i<4;++i)
 							gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
-						gauges[0].maxValue = 640; 
-						gauges[1].maxValue = 480; 
-						gauges[2].maxValue = 30; 
-						gauges[3].maxValue = 1024;
 						gauges[2].set(Math.min(Math.floor(fps)   ,30));
-						gauges[3].set(Math.min(Math.floor(kbps) ,1024));
+						gauges[3].set(Math.min(Math.floor(kbps) ,gauges[3].maxValue));
 						texts[2].innerText = Math.floor(fps);
 						texts[3].innerText = Math.floor(kbps);
 					} else if (result.type==="track") {
@@ -201,6 +234,10 @@ function connect()
 						height = result.frameHeight;
 					}
 				}
+				gauges[0].maxValue = Math.max(gauges[0].maxValue,width);
+				gauges[1].maxValue = Math.max(gauges[1].maxValue,height);
+				gauges[4].maxValue = Math.max(gauges[4].maxValue,width);
+				gauges[5].maxValue = Math.max(gauges[5].maxValue,height);
 				gauges[0].set(width);
 				gauges[1].set(height);
 				texts[0].innerText = width;
@@ -227,8 +264,8 @@ function connect()
 			//Select simulcast layer
 			ws.send(JSON.stringify({
 				cmd		: "SELECT_LAYER",
-				spatialLayerId	: 1,
-				temporalLayerId	: 2
+				spatialLayerId	: 0,
+				temporalLayerId	: 0
 			}));
 		})
 		.catch(function(error){
@@ -242,38 +279,51 @@ function connect()
 		//Get protocol message
 		const msg = JSON.parse(event.data);
 		
-		console.log(msg.answer);
-		pc.setRemoteDescription(new RTCSessionDescription({
-				type:'answer',
-				sdp: msg.answer
-			}), function () {
-				console.log("JOINED");
-			}, function (err) {
-				console.error("Error joining",err);
-			}
-		);
-		var old = document.querySelector ('.mdl-button--colored');
-		var listener = function(event) 
+		if (msg.answer)
 		{
-			//Get data
-			var spatialLayerId = event.target.dataset["sid"];
-			var temporalLayerId = event.target.dataset["tid"];
-			//Send event
-			//Create room
-			ws.send(JSON.stringify({
-				cmd		: "SELECT_LAYER",
-				spatialLayerId	: spatialLayerId,
-				temporalLayerId	: temporalLayerId
-			}));
-			//Remove
-			event.target.classList.add("mdl-button--colored");
+			console.log(msg.answer);
+			pc.setRemoteDescription(new RTCSessionDescription({
+					type:'answer',
+					sdp: msg.answer
+				}), function () {
+					console.log("JOINED");
+				}, function (err) {
+					console.error("Error joining",err);
+				}
+			);
+			
+			var listener = function(event) 
+			{
+				//Get previous selected
+				var old = document.querySelector ('.mdl-button--colored');
+				//Get data
+				var spatialLayerId = event.target.dataset["sid"];
+				var temporalLayerId = event.target.dataset["tid"];
+				//Send event
+				//Create room
+				ws.send(JSON.stringify({
+					cmd		: "SELECT_LAYER",
+					spatialLayerId	: spatialLayerId,
+					temporalLayerId	: temporalLayerId
+				}));
+				//Remove
+				event.target.classList.add("mdl-button--colored");
+				old.classList.remove("mdl-button--colored");
+			};
+			var buttons = document.querySelectorAll('button');
+			for (var i = 0; i < buttons.length; i++) 
+				buttons[i].addEventListener("click",listener);
+		} else {
+			
+			var spatialLayerId = msg.sid;
+			var temporalLayerId = msg.tid;
+			//Get divs
+			var old = document.querySelector (".mdl-button--colored");
+			var selected = document.querySelector ("button[data-sid='"+spatialLayerId+"'][data-tid='"+temporalLayerId+"'");
+			//Update 
+			selected.classList.add("mdl-button--colored");
 			old.classList.remove("mdl-button--colored");
-			old = event.target;
-
-		};
-		var buttons = document.querySelectorAll('button');
-		for (var i = 0; i < buttons.length; i++) 
-			buttons[i].addEventListener("click",listener);
+		}
 	};
 }
 

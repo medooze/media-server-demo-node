@@ -97,6 +97,7 @@ const handlers = {
 	"broadcast"	: require("./lib/broadcast.js"),
 	"simulcast"	: require("./lib/simulcast.js"),
 	"playback"	: require("./lib/playback.js"),
+	"datachannels"	: require("./lib/datachannels.js"),
 };
 
 wsServer.on ('request', (request) => {
@@ -112,3 +113,16 @@ wsServer.on ('request', (request) => {
 	//Process it
 	handlers[protocol](request,protocol,endpoint);
 });
+
+
+//Try to clean up on exit
+const onExit = (e) => {
+	if (e) console.error(e);
+	MediaServer.terminate();
+	process.exit();
+};
+
+process.on("uncaughtException"	, onExit);
+process.on("SIGINT"		, onExit);
+process.on("SIGTERM"		, onExit);
+process.on("SIGQUIT"		, onExit);

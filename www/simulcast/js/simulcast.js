@@ -1,6 +1,39 @@
 const url = "wss://"+window.location.hostname+":"+window.location.port;
 
-
+let videoResolution = true;
+//Get our url
+const href = new URL (window.location.href);
+if (href.searchParams.has ("video"))
+	switch (href.searchParams.get ("video").toLowerCase ())
+	{
+		case "1080p":
+			videoResolution = {
+				width: {min: 1920, max: 1920},
+				height: {min: 1080, max: 1080},
+			};
+			break;
+		case "720p":
+			videoResolution = {
+				width: {min: 1280, max: 1280},
+				height: {min: 720, max: 720},
+			};
+			break;
+		case "576p":
+			videoResolution = {
+				width: {min: 720, max: 720},
+				height: {min: 576, max: 576},
+			};
+			break;
+		case "480p":
+			videoResolution = {
+				width: {min: 640, max: 640},
+				height: {min: 480, max: 480},
+			};
+			break;
+		case "no":
+			videoResolution = false;
+			break;
+	}
 var opts = {
 	lines: 12, // The number of lines to draw
 	angle: 0.15, // The length of each line
@@ -25,16 +58,18 @@ for (var i=0;i<targets.length;++i)
 	gauges[i].animationSpeed = 10000; // set animation speed (32 is default value)
 	gauges[i].set (0); // set actual value
 }
-gauges[0].maxValue = 640; 
-gauges[1].maxValue = 480; 
-gauges[2].maxValue = 30; 
-gauges[3].maxValue = 1024; 
-gauges[4].maxValue = 640; 
-gauges[5].maxValue = 480; 
-gauges[6].maxValue = 30; 
-gauges[7].maxValue = 1024;
-
 var texts =  document.querySelectorAll('.gaugeChartLabel');
+var max =  document.querySelectorAll('.gaugeChartMax');
+
+max[0].innerText = gauges[0].maxValue = videoResolution.width ? videoResolution.width.max : 640; 
+max[1].innerText = gauges[1].maxValue = videoResolution.height ? videoResolution.height.max : 480;
+max[2].innerText = gauges[2].maxValue = 30; 
+max[3].innerText = gauges[3].maxValue = 2048; 
+max[4].innerText = gauges[4].maxValue = videoResolution.width ? videoResolution.width.max : 640; 
+max[5].innerText = gauges[5].maxValue = videoResolution.height ? videoResolution.height.max : 480;
+max[6].innerText = gauges[6].maxValue = 30; 
+max[7].innerText = gauges[7].maxValue = 2048;
+
 var ssrcs;
 
 function addVideoForStream(stream,muted)
@@ -65,23 +100,25 @@ function  getUserMedia(constrains)
 	});
 }
 
-var sdp;
 var pc;
+let simulcast_03 = false;
+let sdpMungling = false;
 	
 function connect() 
 {
 	//Create PC
-	pc = new RTCPeerConnection();
+	pc = new RTCPeerConnection({sdpSemantics : "plan-b"});
 
 	var ws = new WebSocket(url,"simulcast");
 	
-	pc.onaddstream = function(event) {
+	pc.ontrack = function(event) {
 		var prev = 0,prevFrames = 0,prevBytes = 0;
-		console.debug("onAddStream",event);
+		console.debug("ontrack",event);
+		const stream = event.streams[0];
 		//Play it
-		addVideoForStream(event.stream);
+		addVideoForStream(stream);
 		//Get track
-		var track = event.stream.getVideoTracks()[0];
+		var track = stream.getVideoTracks()[0];
 		//Update stats
 		setInterval(async function(){
 			var results;
@@ -93,6 +130,9 @@ function connect()
 				//For chrome
 				results = await pc.getStats();
 			}
+			var width = track.width || remote.videoWidth;
+			var height = track.height || remote.videoHeight;
+					
 			//Get results
 			for (let result of results.values())
 			{
@@ -104,8 +144,6 @@ function connect()
 					prev = result.timestamp;
 
 					//Get values
-					var width = track.width || remote.videoWidth;//result.stat("googFrameWidthReceived");
-					var height = track.height || remote.videoHeight;//result.stat("googFrameHeightReceived");
 					var fps =  (result.framesDecoded-prevFrames)*1000/delta;
 					var kbps = (result.bytesReceived-prevBytes)*8/delta;
 					//Store last values
@@ -117,16 +155,20 @@ function connect()
 
 					for (var i=4;i<targets.length;++i)
 						gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
-					gauges[4].set(width);
-					gauges[5].set(height);
 					gauges[6].set(Math.min(Math.floor(fps)   ,30));
-					gauges[7].set(Math.min(Math.floor(kbps) ,1024));
-					texts[4].innerText = width;
-					texts[5].innerText = height;
+					gauges[7].set(Math.min(Math.floor(kbps) ,gauges[7].maxValue));
 					texts[6].innerText = Math.floor(fps);
 					texts[7].innerText =  Math.floor(kbps);
+				} else if (result.type==="track") {
+					//Update stats
+					width = result.frameWidth;
+					height = result.frameHeight;
 				}
 			}
+			gauges[4].set(width);
+			gauges[5].set(height);
+			texts[4].innerText = width;
+			texts[5].innerText = height;
 		},1000);
 			
 	};
@@ -136,7 +178,7 @@ function connect()
 		
 		navigator.mediaDevices.getUserMedia({
 			audio: false,
-			video: true
+			video: videoResolution
 		})
 		.then(function(stream){	
 			var prev = 0;
@@ -156,6 +198,10 @@ function connect()
 					//For chrome
 					results = await pc.getStats();
 				}
+				
+				var width = track.width || local.videoWidth;//result.stat("googFrameWidthReceived");
+				var height = track.height || local.videoHeight;//result.stat("googFrameHeightReceived");
+						
 				//Get results
 				for (let result of results.values())
 				{
@@ -168,9 +214,7 @@ function connect()
 						prev = result.timestamp;
 
 						//Get values
-						var width = track.width || local.videoWidth;//result.stat("googFrameWidthReceived");
-						var height = track.height || local.videoHeight;//result.stat("googFrameHeightReceived");
-						var fps =  (result.framesEncoded-prevFrames)*1000/delta;
+						var fps =  ((result.framesEncoded-prevFrames)*1000/delta);
 						var kbps = (result.bytesSent-prevBytes)*8/delta;
 						//Store last values
 						prevFrames = result.framesEncoded;
@@ -181,24 +225,22 @@ function connect()
 
 						for (var i=0;i<4;++i)
 							gauges[i].animationSpeed = 10000000; // set animation speed (32 is default value)
-						gauges[0].maxValue = 640; 
-						gauges[1].maxValue = 480; 
-						gauges[2].maxValue = 30; 
-						gauges[3].maxValue = 1024;
-						gauges[0].set(width);
-						gauges[1].set(height);
 						gauges[2].set(Math.min(Math.floor(fps)   ,30));
-						gauges[3].set(Math.min(Math.floor(kbps) ,1024));
-						texts[0].innerText = width;
-						texts[1].innerText = height;
+						gauges[3].set(Math.min(Math.floor(kbps) ,gauges[3].maxValue));
 						texts[2].innerText = Math.floor(fps);
 						texts[3].innerText = Math.floor(kbps);
+					} else if (result.type==="track") {
+						//Update stats
+						width = result.frameWidth;
+						height = result.frameHeight;
 					}
 				}
 			},1000);
 			window.s = stream;
-			//Add stream to peer connection
-			pc.addStream(stream);
+			
+			//Add stream tracks to peer connection
+			stream.getTracks().forEach(track => pc.addTrack(track, stream));
+			
 			//Check API "compatibility"
 			if (pc.getSenders()[0].setParameters)
 			{
@@ -219,59 +261,76 @@ function connect()
 		})
 		.then(function(offer){
 			console.debug("createOffer sucess",offer);
-			//Convert from simulcast_03 to simulcast
-			sdp = offer.sdp.replace(": send rid=",":send ");
 			
-			try {
-				//OK, chrome way
-				const reg1 = RegExp("m=video.*\?a=ssrc:(\\d*) cname:(.+?)\\r\\n","s");
-				const reg2 = RegExp("m=video.*\?a=ssrc:(\\d*) mslabel:(.+?)\\r\\n","s");
-				const reg3 = RegExp("m=video.*\?a=ssrc:(\\d*) msid:(.+?)\\r\\n","s");
-				const reg4 = RegExp("m=video.*\?a=ssrc:(\\d*) label:(.+?)\\r\\n","s");
-				//Get ssrc and cname
-				let res = reg1.exec(sdp);
-				const ssrc = res[1];
-				const cname = res[2];
-				//Get other params
-				const mslabel = reg2.exec(sdp)[2];
-				const msid = reg3.exec(sdp)[2];
-				const label = reg4.exec(sdp)[2];
-				//Add simulcasts ssrcs
-				const num = 1;
-				const ssrcs = [ssrc];
-
-				for (let i=0;i<num;++i)
-				{
-					//Create new ssrcs
-					const ssrc = 100+i*2;
-					const rtx   = ssrc+1;
-					//Add to ssrc list
-					ssrcs.push(ssrc);
-					//Add sdp stuff
-					sdp +=	"a=ssrc-group:FID " + ssrc + " " + rtx + "\r\n" +
-						"a=ssrc:" + ssrc + " cname:" + cname + "\r\n" +
-						"a=ssrc:" + ssrc + " msid:" + msid + "\r\n" +
-						"a=ssrc:" + ssrc + " mslabel:" + mslabel + "\r\n" +
-						"a=ssrc:" + ssrc + " label:" + label + "\r\n" +
-						"a=ssrc:" + rtx + " cname:" + cname + "\r\n" +
-						"a=ssrc:" + rtx + " msid:" + msid + "\r\n" +
-						"a=ssrc:" + rtx + " mslabel:" + mslabel + "\r\n" +
-						"a=ssrc:" + rtx + " label:" + label + "\r\n";
-				}
-				//Add SIM group
-				sdp += "a=ssrc-group:SIM " + ssrcs.join(" ") + "\r\n";
-				//Add RID equivalent
-				sdp += "a=simulcast:send a;b\r\n";
-				sdp += "a=rid:a send ssrc="+ssrcs[1]+"\r\n";
-				sdp += "a=rid:b send ssrc="+ssrcs[0]+"\r\n";
-				sdp += "a=x-google-flag:conference\r\n";
-				//Disable third row
-				document.querySelector("tr[data-rid='c']").style.display = 'none';
-				//Update sdp in offer to
-				offer.sdp = sdp;
-			} catch(e) {
-				console.error(e);
+			//Get offer
+			let sdp = offer.sdp;
+			
+			//Check simulcast 04 format
+			if (sdp.indexOf(": send rid"))
+			{
+				//Convert from simulcast_03 to simulcast
+				sdp = sdp.replace(": send rid=",":send ");
+				//We need to modify answer too
+				simulcast_03 = true;
 			}
+			
+			//If offer doesn't have simulcast
+			if (sdp.indexOf("simulcast")==-1)
+				try {
+					//OK, chrome way
+					const reg1 = RegExp("m=video.*\?a=ssrc:(\\d*) cname:(.+?)\\r\\n","s");
+					const reg2 = RegExp("m=video.*\?a=ssrc:(\\d*) mslabel:(.+?)\\r\\n","s");
+					const reg3 = RegExp("m=video.*\?a=ssrc:(\\d*) msid:(.+?)\\r\\n","s");
+					const reg4 = RegExp("m=video.*\?a=ssrc:(\\d*) label:(.+?)\\r\\n","s");
+					//Get ssrc and cname
+					let res = reg1.exec(sdp);
+					const ssrc = res[1];
+					const cname = res[2];
+					//Get other params
+					const mslabel = reg2.exec(sdp)[2];
+					const msid = reg3.exec(sdp)[2];
+					const label = reg4.exec(sdp)[2];
+					//Add simulcasts ssrcs
+					const num = 2;
+					const ssrcs = [ssrc];
+
+					for (let i=0;i<num;++i)
+					{
+						//Create new ssrcs
+						const ssrc = 100+i*2;
+						const rtx   = ssrc+1;
+						//Add to ssrc list
+						ssrcs.push(ssrc);
+						//Add sdp stuff
+						sdp +=	"a=ssrc-group:FID " + ssrc + " " + rtx + "\r\n" +
+							"a=ssrc:" + ssrc + " cname:" + cname + "\r\n" +
+							"a=ssrc:" + ssrc + " msid:" + msid + "\r\n" +
+							"a=ssrc:" + ssrc + " mslabel:" + mslabel + "\r\n" +
+							"a=ssrc:" + ssrc + " label:" + label + "\r\n" +
+							"a=ssrc:" + rtx + " cname:" + cname + "\r\n" +
+							"a=ssrc:" + rtx + " msid:" + msid + "\r\n" +
+							"a=ssrc:" + rtx + " mslabel:" + mslabel + "\r\n" +
+							"a=ssrc:" + rtx + " label:" + label + "\r\n";
+					}
+					//Conference flag
+					sdp += "a=x-google-flag:conference\r\n";
+					//Add SIM group
+					sdp += "a=ssrc-group:SIM " + ssrcs.join(" ") + "\r\n";
+					//Update sdp in offer without the rid stuff
+					offer.sdp = sdp;
+					//Add RID equivalent to send it to the sfu
+					sdp += "a=simulcast:send a;b;c\r\n";
+					sdp += "a=rid:a send ssrc="+ssrcs[2]+"\r\n";
+					sdp += "a=rid:b send ssrc="+ssrcs[1]+"\r\n";
+					sdp += "a=rid:c send ssrc="+ssrcs[0]+"\r\n";
+					//Disable third row
+					//document.querySelector("tr[data-rid='c']").style.display = 'none';
+					//Doing mungling
+					sdpMungling = true;
+
+				} catch(e) {
+					console.error(e);
+				}
 			
 			//Set it
 			pc.setLocalDescription(offer);
@@ -301,12 +360,20 @@ function connect()
 		const msg = JSON.parse(event.data);
 		
 		//Get sdp
-		let sdp = msg.answer.replace(":recv ",": recv rid=")
+		let sdp = msg.answer;
+			
+		//If offer was simulcast 04
+		if (simulcast_03)
+			//Conver it back
+			sdp = sdp.replace(": recv rid=",":recv ");
 		
-		//Add custom flag
-		sdp += "a=x-google-flag:conference\r\n";
+		//if doing mungling
+		if (sdpMungling)
+			//Add custom flag and remove simulcast attirbute
+			sdp = sdp.replace(/a=sim.*\r\n/,"") + "a=x-google-flag:conference\r\n";
+			
+		console.log(sdp);
 		
-		console.log(msg.answer);
 		pc.setRemoteDescription(new RTCSessionDescription({
 				type:'answer',
 				//Convert from simulcast to simulcast_03
