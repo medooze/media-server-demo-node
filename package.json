@@ -16,6 +16,9 @@
     "url": "https://github.com/murillo128/media-server-demo-node/issues"
   },
   "homepage": "https://github.com/murillo128/media-server-demo-node#readme",
+  "engines": {
+    "node": "^10.18.0"
+  },
   "dependencies": {
     "medooze-media-server": "^0",
     "semantic-sdp": "^3",
